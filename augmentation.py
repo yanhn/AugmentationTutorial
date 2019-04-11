@@ -46,7 +46,7 @@ class RandomHorizontalMirror(object):
     def __call__(self, image, boxes, label):
         width = image.shape[1]
         if random.randint(2):
-            image = image[:, ::-1]
+            image = cv2.flip(image, 1)
             if boxes is not None:
                 boxesTmp = boxes.copy()
                 boxes[:, 0::2] = width - boxesTmp[:, 2::-2]
@@ -61,7 +61,7 @@ class RandomVerticalMirror(object):
     def __call__(self, image, boxes, label):
         height = image.shape[0]
         if random.randint(2):
-            image = image[::-1, :]
+            image = cv2.flip(image, 0)
             if boxes is not None:
                 boxesTmp = boxes.copy()
                 boxes[:, 1::2] = height - boxesTmp[:, 3::-2]
@@ -76,8 +76,8 @@ class Rotate90(object):
     def __call__(self, image, boxes, label):
         height, width = image.shape[:2]
         oriBox = boxes.copy()
-        if random.randrange(2):
-            if random.randrange(2):
+        if random.randint(2):
+            if random.randint(2):
                 image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
                 if boxes is not None:
                     boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3] = height - oriBox[:, 3], oriBox[:, 0], height - oriBox[:, 1], oriBox[:, 2]
@@ -94,10 +94,10 @@ class ClipBox(object):
     def __call__(self, image, boxes, label):
         if boxes is not None:
             height, width = image.shape[:2]
-            boxes[:, 0] = np.min(np.max(0, boxes[:, 0]), width)
-            boxes[:, 1] = np.min(np.max(0, boxes[:, 0]), height)
-            boxes[:, 2] = np.min(np.max(0, boxes[:, 0]), width)
-            boxes[:, 3] = np.min(np.max(0, boxes[:, 0]), height)
+            boxes[:, 0] = np.minimum(np.maximum(0, boxes[:, 0]), width)
+            boxes[:, 1] = np.minimum(np.maximum(0, boxes[:, 1]), height)
+            boxes[:, 2] = np.minimum(np.maximum(0, boxes[:, 2]), width)
+            boxes[:, 3] = np.minimum(np.maximum(0, boxes[:, 3]), height)
         return image, boxes, label
 
 # TODO
@@ -129,11 +129,7 @@ class RandomSampleCrop(object):
         self._leastBorderGap = leastBorderGap
 
     def __call__(self, image, boxes=None, labels=None):
-        try:
-            height, width, _ = image.shape
-        except:
-            height, width = image.shape
-        # height, width, _ = image.shape
+        height, width = image.shape[:2]
         insterestedCanvas = np.array([int(width * self._leastBorderGap), int(height * self._leastBorderGap),
                                       width - int(width * self._leastBorderGap), height - int(height * self._leastBorderGap)])
         while True:
@@ -293,6 +289,121 @@ class Expand(object):
 
         return image, boxes, labels
 
+# TODO comment
+class SubtractMeans(object):
+    def __init__(self, mean):
+        self.mean = np.array(mean, dtype=np.float32)
+
+    def __call__(self, image, boxes=None, labels=None):
+        image = image.astype(np.float32)
+        image -= self.mean
+        return image.astype(np.float32), boxes, labels
+
+class Resize(object):
+    def __init__(self, size=300):
+        self.size = size
+
+    def __call__(self, image, boxes=None, labels=None):
+        image = cv2.resize(image, (self.size, self.size))
+        return image, boxes, labels
+
+class StableResize(object):
+    """
+    Stable resize keep width / height ratio unchanged.
+    """
+    def __init__(self, size=300, mean=(0,0,0)):
+        self.size = size
+        self.mean = mean
+
+    def __call__(self, image, boxes=None, labels=None):
+        height, width = image.shape[:2]
+        maxSide = np.maximum(height, width)
+        ratio = self.size / float(maxSide)
+        newShape = (int(width * ratio), int(height * ratio))        # (w, h)
+        image = cv2.resize(image, newShape)
+
+        diffX = self.size - image.shape[1]
+        diffY = self.size - image.shape[0]
+
+        padX = np.random.randint(0, diffX) if diffX > 0 else 0
+        padY = np.random.randint(0, diffY) if diffY > 0 else 0
+        image = cv2.copyMakeBorder(image, padY, diffY - padY, padX, diffX - padX, cv2.BORDER_CONSTANT, self.mean)
+        if boxes is not None:
+            boxes[:, 0] = boxes[:, 0] * ratio + padX
+            boxes[:, 1] = boxes[:, 1] * ratio + padY
+            boxes[:, 2] = boxes[:, 2] * ratio + padX
+            boxes[:, 3] = boxes[:, 3] * ratio + padY
+
+        return image, boxes, labels
+
+# TODO
+# class FFTTrans(object):
+#     # FFT must do after resize and random crop
+#     def __call__(self, image, boxes=None, labels=None):
+#         imgImgPart = np.zeros(image.shape)
+#         imgComplex = np.zeros((image.shape[0], image.shape[1], 2))
+#         imgComplex[:, :, 0] = image
+#         imgComplex[:, :, 1] = imgImgPart
+#
+#
+#         x = torch.Tensor(imgComplex)
+#         y = torch.fft(x, 2, True)
+#
+#         normY = y.cpu().numpy()
+#         normY = (normY - normY.mean()) / normY.var()
+#         normY = np.transpose(normY, (2, 0, 1))
+#         ret = np.concatenate((image.reshape(1, image.shape[0], image.shape[1]), normY))
+#         # shape 300 x 300 x 3
+#         return ret, boxes, labels
+
+class ConverBGRToGray(object):
+    def __call__(self, image, boxes=None, labels=None):
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        return image, boxes, labels
+
+class ToAbsoluteCoords(object):
+    def __call__(self, image, boxes=None, labels=None):
+        height, width = image.shape[:2]
+        boxes[:, 0] *= width
+        boxes[:, 2] *= width
+        boxes[:, 1] *= height
+        boxes[:, 3] *= height
+
+        return image, boxes, labels
+
+class ToPercentCoords(object):
+    def __call__(self, image, boxes=None, labels=None):
+        height, width = image.shape[:2]
+        boxes[:, 0] /= width
+        boxes[:, 2] /= width
+        boxes[:, 1] /= height
+        boxes[:, 3] /= height
+        return image, boxes, labels
+
+class Transpose201(object):
+    def __call__(self, image, boxes=None, labels=None):
+        if len(image.shape) == 2:
+            # special case for grayscale image
+            image = np.expand_dims(image, axis=2)
+        image = np.transpose(image, (2, 0, 1))
+        return image, boxes, labels
+
+def displayData(image, boxes, label):
+    imageTmp = image.copy()
+    for id in range(boxes.shape[0]):
+        cv2.rectangle(imageTmp, (int(boxes[id][0]), int(boxes[id][1])), (int(boxes[id][2]), int(boxes[id][3])), (0, 255, 255), 2)
+        cv2.putText(imageTmp, "{}".format(label[id]), (int(boxes[id][0]), int(boxes[id][1]) - 1), 1, 1, (0, 0, 255))
+    cv2.imshow("data", imageTmp)
+    cv2.waitKey()
+
+class ConvertFromIntToFloat(object):
+    def __call__(self, image, boxes=None, labels=None):
+        return image.astype(np.float32), boxes, labels
+
+class ConvertFromFloatToInt(object):
+    def __call__(self, image, boxes=None, labels=None):
+        return image.astype(np.uint8), boxes, labels
+
 class Compose(object):
     """Composes several augmentations together.
     Args:
@@ -313,64 +424,69 @@ class Compose(object):
         return img, boxes, labels
 
 class SSDAugmentation(object):
-    def __init__(self, size=300, mean=(104, 117, 123)):
+    def __init__(self, size=300, mean=(104, 117, 123), std=(1,1,1)):
         self.mean = mean
         self.size = size
+        self.std = std
         self.augment = Compose([
-            ConvertFromInts(),
-            ToAbsoluteCoords(),
-            PhotometricDistort(),
-            Expand(self.mean),
+            # random contrast, hue, saturation
             RandomSampleCrop(),
+            Expand(self.mean),
             RandomHorizontalMirror(),
             RandomVerticalMirror(),
-            ToPercentCoords(),
-            Resize(self.size),
-            SubtractMeans(self.mean)
+            Rotate90(),
+            StableResize(self.size, self.mean),
+            SubtractMeans(self.mean), # grayscale rgb mean wrong
+            ClipBox(),
+            ToPercentCoords(),        #
+            Transpose201()
         ])
 
     def __call__(self, img, boxes, labels = None):
-        return self.augment(img, boxes, labels)
+        img, boxes, labels = self.augment(img, boxes, labels)
+        # displayData(img, boxes, labels)
+        return img, boxes, labels
 
 class SSDAugmentationGray(object):
-    def __init__(self, size=300, mean=(120)):
+    def __init__(self, size=300, mean=(120), std=(1)):
         self.mean = mean
         self.size = size
+        self.std = std
         self.augment = Compose([
-            ConvertFromInts(),
-            ToAbsoluteCoordsGray(),
-            RandomContrast(),
-            # PhotometricDistort(), # single cahnnel
-            Expand(self.mean, 2),
+            ConverBGRToGray(),
+            # random contrast, hue, saturation
             RandomSampleCrop(),
-            RandomMirror(),
-            ToPercentCoords(),
-            Resize(self.size),
-            SubtractMeans(self.mean),
-            FFTTrans()
+            Expand(self.mean),
+            RandomHorizontalMirror(),
+            RandomVerticalMirror(),
+            Rotate90(),
+            StableResize(self.size, self.mean),
+            SubtractMeans(self.mean), # grayscale rgb mean wrong
+            ClipBox(),
+            ToPercentCoords(),        #
+            Transpose201()
         ])
 
     def __call__(self, img, boxes, labels = None):
-        return self.augment(img, boxes, labels)
+        img, boxes, labels = self.augment(img, boxes, labels)
+        # displayData(img, boxes, labels)
+        return img, boxes, labels
 
 class SSDAugmentationTest(object):
-    def __init__(self, size=300, mean=(120)):
+    def __init__(self, size=300, mean=(120), std=(1)):
         self.mean = mean
         self.size = size
+        self.std = std
         self.augment = Compose([
-            ConvertFromInts(),
-            ToAbsoluteCoordsGray(),
-            # RandomContrast(),
-            # # PhotometricDistort(), # single cahnnel
-            # Expand(self.mean, 2),
-            RandomSampleCrop(),
-            # RandomMirror(),
-            ToPercentCoords(),
-            Resize(self.size),
-            # SubtractMeans(self.mean),
-            # FFTTrans()
-            ConvertFromFloatToInt()
+            ConverBGRToGray(),
+            # random contrast, hue, saturation
+            StableResize(self.size, self.mean),
+            SubtractMeans(self.mean), # grayscale rgb mean wrong
+            ToPercentCoords(),        #
+            Transpose201()
         ])
 
     def __call__(self, img, boxes, labels = None):
-        return self.augment(img, boxes, labels)
+        img, boxes, labels = self.augment(img, boxes, labels)
+        # displayData(img, boxes, labels)
+        return img, boxes, labels
