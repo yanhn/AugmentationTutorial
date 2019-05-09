@@ -40,8 +40,8 @@ namespace hawk{
     bool StableResizeAugmentation::transform(ImageData& imgData){
         int inputWidth = imgData.img.cols;
         int inputHeight = imgData.img.rows;
-        float ratioWidth = inputWidth / _outWidth;
-        float ratioHeight = inputHeight / _outHeight;
+        float ratioWidth = (float)inputWidth / _outWidth;
+        float ratioHeight = (float)inputHeight / _outHeight;
         if (ratioWidth >= ratioHeight){
             int resizedHeight = int(inputHeight / ratioWidth);
             int heightPadding = (_outHeight - resizedHeight) / 2;
