@@ -46,13 +46,13 @@ namespace hawk{
             int resizedHeight = int(inputHeight / ratioWidth);
             int heightPadding = (_outHeight - resizedHeight) / 2;
             cv::resize(imgData.img, imgData.img, cv::Size2d(_outWidth, resizedHeight));
-            cv::copyMakeBorder(imgData.img, imgData.img, heightPadding, _outHeight - resizedHeight, 0, 0, cv::BORDER_CONSTANT);
+            cv::copyMakeBorder(imgData.img, imgData.img, heightPadding, _outHeight - resizedHeight - heightPadding, 0, 0, cv::BORDER_CONSTANT);
             return true;
         } else{
             int resizedWidth = int(inputWidth / ratioHeight);
             int widthPadding = (_outWidth - resizedWidth) / 2;
             cv::resize(imgData.img, imgData.img, cv::Size2d(resizedWidth, _outHeight));
-            cv::copyMakeBorder(imgData.img, imgData.img, 0, 0, widthPadding, _outWidth - resizedWidth, cv::BORDER_CONSTANT);
+            cv::copyMakeBorder(imgData.img, imgData.img, 0, 0, widthPadding, _outWidth - resizedWidth - widthPadding, cv::BORDER_CONSTANT);
             return true;
         }
     }
