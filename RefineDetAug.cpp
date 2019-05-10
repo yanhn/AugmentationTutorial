@@ -6,7 +6,9 @@
 
 namespace hawk{
     RefineDetAug::RefineDetAug(){
-        _augs.push_back((BasicAugmentation*) new StableResizeAugmentation(320, 320));
+        _augs.push_back((BasicAugmentation*) new HardResizeAugmentation(320, 320));
+
+//        _augs.push_back((BasicAugmentation*) new StableResizeAugmentation(320, 320));
         std::vector<float> means = {120.};
         std::vector<float> vars = {1.};
         _augs.push_back((BasicAugmentation*) new SubMeanDivideVarAugmentation(means, vars));
@@ -19,6 +21,10 @@ namespace hawk{
     }
 
     bool RefineDetAug::tranform(ImageData& imageData){
+        if(imageData.img.cols == 0 || imageData.img.rows == 0){
+            std::cout << "Invalid input image." << std::endl;
+            return false;
+        }
         for (auto aug : _augs){
             if(!aug->transform(imageData)){
                 std::cout << "Some aug wrong. " << aug->getTransformName() << std::endl;

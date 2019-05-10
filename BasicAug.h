@@ -5,8 +5,6 @@
 #ifndef TRTINFER_BASICAUG_H
 #define TRTINFER_BASICAUG_H
 
-#endif //TRTINFER_BASICAUG_H
-
 #include <vector>
 #include <opencv.hpp>
 
@@ -53,6 +51,20 @@ namespace hawk{
     };
 
     /*
+  * Description: Used to do image resize. hard resize with w/h ratio changed, so distortion introduced
+  * Constructor:
+  */
+    class HardResizeAugmentation:BasicAugmentation{
+    public:
+        HardResizeAugmentation(int outWidth, int outHeight);
+        ~HardResizeAugmentation();
+        bool transform(ImageData& imgData);
+    private:
+        int _outWidth;
+        int _outHeight;
+    };
+
+    /*
      * Description: Used to do sub mean and divide vars oprations.
      * Convert input rtype from
      */
@@ -67,3 +79,5 @@ namespace hawk{
         bool _isSingleChannel;
     };
 }
+
+#endif //TRTINFER_BASICAUG_H

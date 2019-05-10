@@ -5,8 +5,6 @@
 #ifndef TRTINFER_REFINEDETAUG_H
 #define TRTINFER_REFINEDETAUG_H
 
-#endif //TRTINFER_REFINEDETAUG_H
-
 #include<dataAugmentation/BasicAug.h>
 
 namespace hawk{
@@ -22,3 +20,5 @@ namespace hawk{
 
     void testRefineDetAug();
 }
+
+#endif //TRTINFER_REFINEDETAUG_H

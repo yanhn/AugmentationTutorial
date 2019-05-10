@@ -57,6 +57,22 @@ namespace hawk{
         }
     }
 
+    // HardResizeAugmentation
+    HardResizeAugmentation::HardResizeAugmentation(int outWidth, int outHeight){
+        _outWidth = outWidth;
+        _outHeight = outHeight;
+        _augmentationOpName = "HardResizeAug";
+    }
+
+    HardResizeAugmentation::~HardResizeAugmentation(){
+
+    }
+
+    bool HardResizeAugmentation::transform(ImageData& imgData){
+        cv::resize(imgData.img, imgData.img, cv::Size2d(_outWidth, _outHeight));
+        return true;
+    }
+
     // SubMeanDivideVarAugmentation
     SubMeanDivideVarAugmentation::SubMeanDivideVarAugmentation(std::vector<float> means, std::vector<float> vars){
         assert(means.size() == vars.size());
@@ -80,7 +96,8 @@ namespace hawk{
      */
     bool SubMeanDivideVarAugmentation::transform(ImageData& imgData){
         if (_isSingleChannel){
-            imgData.img.convertTo(imgData.img, CV_32FC1, 1/_vars[0], -_means[0]);
+            // Usually we want to do sub mean first then divide vars. But in this api, it do divide first. So we modify the mean by divide it.
+            imgData.img.convertTo(imgData.img, CV_32FC1, 1/_vars[0], -_means[0] / _vars[0]);
             return true;
         }else{
             std::vector<cv::Mat> bgrPlanes;
